@@ -1,0 +1,62 @@
+# Core FastAPI & ASGI
+fastapi==0.100.0
+uvicorn==0.23.0
+starlette==0.27.0
+gunicorn==21.2.0
+
+# Database
+sqlalchemy==2.0.19
+alembic==1.11.1 
+asyncpg==0.28.0
+aiomysql==0.2.0
+pymysql==1.1.0
+
+# Validation & Settings
+pydantic==2.0.3
+pydantic-settings==2.0.2
+email-validator==2.0.0
+PyYAML>=5.1
+
+# Authentication & Security
+python-jose==3.3.0
+passlib==1.7.4
+bcrypt==4.0.1
+PyJWT>=2.5.0
+cryptography==43.0.0
+
+# OTP Support
+pyotp==2.9.0
+
+# File Upload
+python-multipart==0.0.6
+
+# File I/O
+aiofiles==23.1.0
+
+# HTTP Client
+httpx==0.24.1
+
+# Date/Time utilities
+python-dateutil==2.8.2
+
+# Email
+aiosmtplib==2.0.2
+
+# Testing
+pytest==7.4.0 
+pytest-asyncio==0.21.1
+
+# Environment variables
+python-dotenv==1.0.0
+
+# Image processing
+Pillow==10.0.0
+pillow-heif==0.11.1
+
+# Cache control
+CacheControl==0.14.0
+
+#Providers
+google-genai==1.28.0
+mistralai==1.9.3
+openai==1.98.0

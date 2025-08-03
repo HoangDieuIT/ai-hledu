@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  hledu-api:
+    build:
+      context: ./HleduApi
+      dockerfile: Dockerfile
+    container_name: hledu-api
+    restart: unless-stopped
+    environment:
+      - ENV=${ENV:-dev}
+      - NAME=${NAME}
+      - VERSION=${VERSION}
+      - ERRORS=${ERRORS}
+      - LAUNCH_SCREEN=${LAUNCH_SCREEN}
+      - TZ__TIMEZONE=${TZ__TIMEZONE}
+      - DOCS__ENABLED=${DOCS__ENABLED}
+      - DOCS__USERNAME=${DOCS__USERNAME}
+      - DOCS__PASSWORD=${DOCS__PASSWORD}
+      - DOCS__URL_PREFIX=${DOCS__URL_PREFIX}
+      - DB__DSN=${DB__DSN}
+      - DB__POOL_SIZE=${DB__POOL_SIZE:-20}
+      - DB__ECHO=${DB__ECHO:-false}
+      - DB__ECHO_POOL=${DB__ECHO_POOL:-false}
+      - OTP__SECRET_KEY=${OTP__SECRET_KEY}
+      - OTP__ISSUER=${OTP__ISSUER:-Hledu API}
+      - OTP__PERIOD=${OTP__PERIOD:-30}
+      - OTP__DIGITS=${OTP__DIGITS:-8}
+      - CORS__ORIGINS=${CORS__ORIGINS}
+      - CORS__CREDENTIALS=${CORS__CREDENTIALS:-true}
+      - CORS__METHODS=${CORS__METHODS:-*}
+      - CORS__HEADERS=${CORS__HEADERS:-*}
+    volumes:
+      - ./HleduApi:/app
+      - ./logs/api:/app/logs
+    ports:
+      - "${API_EXPORT:-12100}:8000"
