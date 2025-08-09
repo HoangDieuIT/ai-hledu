@@ -50,6 +50,14 @@ async def load_and_get_provider() -> Maybe[Optional[c.Provider]]:
 
 
 @service
+async def get_cached_provider() -> Maybe[Optional[c.Provider]]:
+    """
+    Get current provider from in-memory cache without DB hit.
+    """
+    return _current_provider
+
+
+@service
 async def update_provider(provider_id: str) -> Maybe[c.Provider]:
     """
     Update provider as active and reload cache.
