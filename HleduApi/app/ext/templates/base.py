@@ -11,7 +11,7 @@ class WritingAssessmentTemplate(BaseModel):
     student_level: str = Field(..., description="Student proficiency level")
     topic: str = Field(..., description="Writing topic")
     text: str = Field(..., description="User's writing text")
-    type: Literal[TypeRequest.PHARAGRAPH, TypeRequest.SENTENCE] = Field(
+    type: Literal[TypeRequest.PARAGRAPH, TypeRequest.SENTENCE] = Field(
         ..., description="Input granularity"
     )
 
@@ -22,14 +22,14 @@ class WritingAssessmentTemplate(BaseModel):
             return v
         if isinstance(v, str):
             v = v.lower()
-            if v == TypeRequest.PHARAGRAPH.value:
-                return TypeRequest.PHARAGRAPH
+            if v == TypeRequest.PARAGRAPH.value:
+                return TypeRequest.PARAGRAPH
             if v == TypeRequest.SENTENCE.value:
                 return TypeRequest.SENTENCE
         return v
 
     def system_prompt(self) -> str:
-        if self.type == TypeRequest.PHARAGRAPH:
+        if self.type == TypeRequest.PARAGRAPH:
             return (
                 "You are a helpful assistant for writing assessment. "
                 "You are given a paragraph and must evaluate it objectively."
