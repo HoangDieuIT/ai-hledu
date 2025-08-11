@@ -3,7 +3,8 @@
 Provides unified prompt builders for LLM calls.
 """
 
-from .base import WritingAssessmentTemplate, PromptTemplate
+from .base import WritingAssessmentTemplate
+from .template import PromptTemplate
 
 __all__ = [
     "WritingAssessmentTemplate",
