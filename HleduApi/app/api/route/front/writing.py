@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from app.service.writing import WritingAssessmentService
 from app.api.view.requests import WritingAssessmentRequest
-from .commons import r
+from typing import Dict, Any
 import json
 import asyncio
 
@@ -27,8 +27,6 @@ async def assess_writing_stream(
     
     async def generate_sse():
         try:
-            r.logger.info(f"Starting writing assessment for topic: {request.topic}")
-            
             # Send start event
             yield f"data: {json.dumps({'type': 'start', 'message': 'Starting writing assessment...', 'timestamp': asyncio.get_event_loop().time()})}\n\n"
             
@@ -43,11 +41,8 @@ async def assess_writing_stream(
                 yield f"data: {json.dumps({'type': 'ai_processing', 'message': 'Processing with AI...', 'progress': 50})}\n\n"
                 
                 # Use service to assess writing
-                r.logger.info("Calling writing assessment service")
                 assessment_response = await service.assess_writing(request)
-                
-                r.logger.info("Writing assessment service completed successfully")
-                
+                            
                 # Send AI complete event
                 yield f"data: {json.dumps({'type': 'ai_complete', 'message': 'AI has completed analysis', 'progress': 80})}\n\n"
                 
@@ -70,14 +65,12 @@ async def assess_writing_stream(
                         'feedback': f"{category.capitalize()} assessment completed",
                         'suggestions': _get_suggestions_for_category(category, score)
                     }
-                    r.logger.debug(f"Sending {category} result: score {score}")
                     yield f"data: {json.dumps(result)}\n\n"
                     await asyncio.sleep(0.5)
                 
                 # Send final summary result
                 overall_score = assessment_response.overall_score
                 level = _get_level_from_score(overall_score)
-                r.logger.info(f"Assessment completed - Overall score: {overall_score}, Level: {level}")
                 
                 final_result = {
                     'type': 'final',
@@ -92,16 +85,13 @@ async def assess_writing_stream(
                 
             except Exception as ai_error:
                 # If error occurs when calling service
-                r.logger.error(f"Error calling writing assessment service: {str(ai_error)}", exc_info=True)
                 yield f"data: {json.dumps({'type': 'error', 'message': f'Error calling service: {str(ai_error)}'})}\n\n"
             
             # Send completion event
-            r.logger.info("Writing assessment stream completed successfully")
             yield f"data: {json.dumps({'type': 'complete', 'message': 'Writing assessment completed!', 'timestamp': asyncio.get_event_loop().time()})}\n\n"
             
         except Exception as e:
             # Send error event
-            r.logger.error(f"Unexpected error during assessment: {str(e)}", exc_info=True)
             error_data = {
                 'type': 'error',
                 'message': f'Error during assessment: {str(e)}',
