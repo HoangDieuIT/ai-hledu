@@ -19,37 +19,37 @@ class UpdateProviderRequest(BaseModel):
 
 
 class WritingAssessmentRequest(BaseModel):
-    """Request model cho việc chấm bài writing"""
+    """Request model for writing assessment"""
     student_level: str = Field(
         ..., 
-        description="Trình độ học sinh (ví dụ: 3.5, 4.0, 4.5-5.0)",
+        description="Student level (e.g., 3.5, 4.0, 4.5-5.0)",
         example="4.0"
     )
     topic: str = Field(
         ..., 
-        description="Chủ đề bài viết",
+        description="Writing topic",
         example="Environmental Protection",
         min_length=1,
         max_length=200
     )
     text: str = Field(
         ..., 
-        description="Nội dung bài viết cần chấm",
+        description="Text content to be assessed",
         example="Climate change is a serious problem that affects everyone on Earth. We need to take action to reduce carbon emissions and protect our environment.",
         min_length=10,
         max_length=5000
     )
     type: TypeRequest = Field(
         default=TypeRequest.PARAGRAPH,
-        description="Loại bài viết"
+        description="Writing type"
     )
     mode: ModeRequest = Field(
         default=ModeRequest.WRITING,
-        description="Chế độ đánh giá"
+        description="Assessment mode"
     )
     preferred_provider: Optional[str] = Field(
         default=None,
-        description="AI provider ưu tiên (optional)",
+        description="Preferred AI provider (optional)",
         example="openai"
     )
     
