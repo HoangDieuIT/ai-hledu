@@ -2,6 +2,7 @@ from app.ext.providers.base import BaseProvider, ProviderConfig, LLmResponse
 from typing import Optional
 import httpx
 from app.resources import context as r
+import json
 
 class GeminiProvider(BaseProvider):
     def __init__(self, config: ProviderConfig):
@@ -37,13 +38,18 @@ class GeminiProvider(BaseProvider):
                 )
                 resp.raise_for_status()
                 data = resp.json()
+                logger.info("*"*50, data)
                 content = ""
                 candidates = data.get("candidates", [])
                 if candidates:
                     parts = candidates[0].get("content", {}).get("parts", [])
-                    texts = [p.get("text", "") for p in parts]
-                    content = "\n".join([t for t in texts if t])
-                return LLmResponse(content=content, provider_name=self.config.provider_name, model_name=model)
+                    # print("*"*100, candidates[0].get("content", {}))
+                    # texts = [p.get("text", "") for p in parts]
+                    # content = parts
+                return LLmResponse(
+                    content=json.dumps(parts[0].get("text", "")),  # Convert về string
+                    provider_name=self.config.provider_name,
+                    model_name=model)
         except Exception:
             logger.exception("Gemini call failed")
             return LLmResponse(content="", provider_name=self.config.provider_name, model_name=model)
