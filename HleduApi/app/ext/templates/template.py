@@ -51,19 +51,63 @@ class PromptTemplate(BaseModel):
         )
 
     def _user_for_writing(self) -> str:
-        return (
-            self._user_common()
-            + "\nPlease analyze and provide:\n"
-            + "1. Overall score (0-10)\n"
-            + "2. Individual scores for Grammar, Vocabulary, Coherence, Content (0-10 each)\n"
-            + "3. General feedback (overall impression)\n"
-            + "4. Detailed feedback (comprehensive analysis)\n"
-            + "5. Grammar errors with corrections\n"
-            + "6. Vocabulary suggestions\n"
-            + "7. Improvement suggestions\n"
-            + "8. An improved version of the writing\n"
-            + "\nFormat response as JSON with fields similar to the writing template."
-        )
+        """
+        Build the prompt for analyzing a writing task.
+        Returns:
+            str: A formatted string containing analysis instructions and JSON output format.
+        """
+        # Common instructions or context for the task
+        base_prompt = self._user_common()
+
+        # Detailed analysis requirements
+        analysis_instructions = """
+            Please analyze and provide:
+            1. Overall score (0-10)
+            2. Individual scores for Grammar, Vocabulary, Coherence, Content (0-10 each)
+            3. General feedback (overall impression)
+            4. Detailed feedback (comprehensive analysis)
+            5. Grammar errors with corrections
+            6. Vocabulary suggestions
+            7. Improvement suggestions
+            8. An improved version of the writing
+            9. Format of response is JSON
+            """
+
+        # JSON format specification
+        json_format = """
+            Format your response as JSON with these fields:
+            {
+                "overall_score": float,
+                "grammar_score": float,
+                "vocabulary_score": float,
+                "coherence_score": float,
+                "content_score": float,
+                "general_feedback": "string",
+                "detailed_feedback": "string",
+                "grammar_errors": [
+                    {
+                        "error_type": "string",
+                        "original_text": "string",
+                        "corrected_text": "string",
+                        "explanation": "string"
+                    }
+                ],
+                "grammar_improvements": ["string"],
+                "vocabulary_suggestions": [
+                    {
+                        "original_word": "string",
+                        "suggested_word": "string",
+                        "reason": "string"
+                    }
+                ],
+                "vocabulary_improvements": ["string"],
+                "improvement_suggestions": ["string"],
+                "suggested_writing": "string"
+            }
+            """
+
+        # Combine all parts into one final prompt
+        return f"{base_prompt}{analysis_instructions}{json_format}"
 
     def _user_for_speaking(self) -> str:
         return (
