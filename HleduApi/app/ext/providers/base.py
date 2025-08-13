@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, Any
 
 
 class ProviderConfig(BaseModel):
@@ -14,7 +14,7 @@ class ProviderConfig(BaseModel):
 
 
 class LLmResponse(BaseModel):
-    content: str
+    content: Any
     provider_name: str
     model_name: str
 
