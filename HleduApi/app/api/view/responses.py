@@ -1,137 +1,145 @@
-import logging
-import json
-import re
-from typing import Dict, Any
-from .base import service
-from .commons import r, Errors
-from app.ext.templates.template import PromptTemplate
-from app.service.types import TypeRequest, ModeRequest
-from app.ext.providers import LLMManager
-from app.api.view.requests import WritingAssessmentRequest
-from app.api.view.responses import WritingAssessmentResponse
+from datetime import date, datetime
+from typing import List, Optional
+from decimal import Decimal
+
+import app.model.composite as c
+from pydantic import ConfigDict, Field, BaseModel
+from pydantic.alias_generators import to_camel
+from pydantic.dataclasses import dataclass
+from typing_extensions import Self
+from app.resources import context as r
+from app.ext.custom_datetime.time_handler import CustomDateTime
+
+# ================================================================
+# Settings
+# ================================================================
+
+config = ConfigDict(
+    alias_generator=to_camel,
+    populate_by_name=True,
+)
 
 
-# Định nghĩa các field chính một lần để tái sử dụng
-SCORE_FIELDS = ["overall_score", "grammar_score", "vocabulary_score", "coherence_score", "content_score"]
-REQUIRED_FIELDS = SCORE_FIELDS + ["general_feedback"]
-
-@service
-async def assess_writing(request: WritingAssessmentRequest) -> WritingAssessmentResponse:
+@dataclass(config=config)
+class AIModelResponse:
     """
-    Assess writing using AI provider
+    AI Model response model.
     """
-    try:
-        r.logger.info(f"Building prompt for {request.type} assessment")
-        template = PromptTemplate(
-            student_level=request.student_level,
-            topic=request.topic,
-            text=request.text,
-            type=request.type,
-            mode=request.mode
+    id: str = Field(description="AI Model ID")
+    name: str = Field(description="AI Model name")
+    provider_id: str = Field(description="Provider ID")
+    is_active: bool = Field(description="Whether the model is active")
+
+
+@dataclass(config=config) 
+class ProviderResponse:
+    """
+    Provider response model.
+    """
+    id: str = Field(description="Provider ID")
+    name: str = Field(description="Provider name") 
+    is_active: bool = Field(description="Whether the provider is active")
+    ai_models: Optional[List[AIModelResponse]] = Field(default=None, description="AI models associated with this provider")
+
+class GrammarError(BaseModel):
+    """Individual grammar error details"""
+    error_type: str = Field(description="Type of grammar error")
+    original_text: str = Field(description="Original incorrect text")
+    corrected_text: str = Field(description="Corrected version")
+    explanation: str = Field(description="Explanation of the error")
+
+class VocabularySuggestion(BaseModel):
+    """Vocabulary improvement suggestion"""
+    original_word: str = Field(description="Original word used")
+    suggested_word: str = Field(description="Suggested better word")
+    reason: str = Field(description="Reason for the suggestion")
+
+class WritingAssessmentResponse(BaseModel):
+    """Complete writing assessment response"""
+    overall_score: float = Field(..., ge=0, le=10, description="Overall writing score")
+    grammar_score: float = Field(..., ge=0, le=10, description="Grammar score")
+    vocabulary_score: float = Field(..., ge=0, le=10, description="Vocabulary score")
+    coherence_score: float = Field(..., ge=0, le=10, description="Coherence score")
+    content_score: float = Field(..., ge=0, le=10, description="Content score")
+    
+    general_feedback: str = Field(description="Overall impression and feedback")
+    detailed_feedback: str = Field(description="Comprehensive analysis")
+    
+    grammar_errors: Optional[List[GrammarError]] = Field(default=None, description="Grammar errors found (null if no errors)")
+    grammar_improvements: Optional[List[str]] = Field(default=None, description="Grammar improvement suggestions (null if not needed)")
+    vocabulary_suggestions: Optional[List[VocabularySuggestion]] = Field(default=None, description="Vocabulary suggestions (null if vocabulary is good)")
+    vocabulary_improvements: Optional[List[str]] = Field(default=None, description="Vocabulary improvement tips (null if not needed)")
+    improvement_suggestions: Optional[List[str]] = Field(default=None, description="General improvement suggestions (null if writing is excellent)")
+    
+    suggested: Optional[str] = Field(default=None, description="Improved version of the writing (null if original is good)")
+    
+    # Metadata
+    provider: str = Field(description="AI provider used for assessment")
+    model: str = Field(description="AI model used")
+    assessment_timestamp: datetime = Field(description="Assessment timestamp")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "overall_score": 7.5,
+                "grammar_score": 8.0,
+                "vocabulary_score": 7.0,
+                "coherence_score": 8.5,
+                "content_score": 7.0,
+                "general_feedback": "Good effort with room for improvement",
+                "detailed_feedback": "The writing shows good understanding of the topic...",
+                "grammar_errors": [
+                    {"error_type": "Subject-Verb Agreement",
+                        "original_text": "Climate change are",
+                        "corrected_text": "Climate change is",
+                        "explanation": "Singular subject requires singular verb"
+                    }
+                ],
+                "suggested": "Climate change is a serious problem that affects everyone on Earth...",
+                "provider": "gemini",
+                "model": "gemini-2.0-flash",
+                "assessment_timestamp": "2025-08-13T10:00:00Z"
+            }
+        }
+
+    @classmethod
+    def of(
+        cls,
+        data: dict,
+        *,
+        provider: str,
+        model: str,
+        assessment_timestamp: Optional[datetime] = None,
+    ) -> "WritingAssessmentResponse":
+        """Factory method to build response from parsed provider data."""
+
+        def _parse_optional_objects(data_list, object_class) -> Optional[List]:
+            if not data_list or not isinstance(data_list, list):
+                return None
+            parsed_objects: List = []
+            for item in data_list:
+                if isinstance(item, dict):
+                    try:
+                        parsed_objects.append(object_class(**item))
+                    except Exception as e:
+                        r.logger.warning(f"Failed to create {object_class.__name__}: {e}")
+            return parsed_objects if parsed_objects else None
+
+        return cls(
+            overall_score=data.get("overall_score", 0.0),
+            grammar_score=data.get("grammar_score", 0.0),
+            vocabulary_score=data.get("vocabulary_score", 0.0),
+            coherence_score=data.get("coherence_score", 0.0),
+            content_score=data.get("content_score", 0.0),
+            general_feedback=data.get("general_feedback", ""),
+            detailed_feedback=data.get("detailed_feedback", ""),
+            grammar_errors=_parse_optional_objects(data.get("grammar_errors"), GrammarError),
+            grammar_improvements=data.get("grammar_improvements"),
+            vocabulary_suggestions=_parse_optional_objects(data.get("vocabulary_suggestions"), VocabularySuggestion),
+            vocabulary_improvements=data.get("vocabulary_improvements"),
+            improvement_suggestions=data.get("improvement_suggestions"),
+            suggested=data.get("suggested"),
+            provider=provider,
+            model=model,
+            assessment_timestamp=assessment_timestamp or CustomDateTime.now(),
         )
-        prompt = template.build()
-
-        r.logger.info("Generating AI response")
-        llm_response = await LLMManager().generate(prompt)
-
-        r.logger.info("Parsing AI response")
-        assessment_data = _parse_ai_response(llm_response.content)
-
-        return WritingAssessmentResponse(
-            **assessment_data,
-            provider_used=llm_response.provider_name,
-            model_used=llm_response.model_name
-        )
-
-    except Exception as e:
-        r.logger.error(f"Assessment failed: {str(e)}")
-        return Errors.IO_ERROR.on(message="Failed to respond writing")
-
-
-def _parse_ai_response(response: Any) -> Dict[str, Any]:
-    """
-    Parse AI raw response (Gemini/OpenAI/etc.) into WritingAssessmentResponse-compatible dict
-    """
-    try:
-        # Nếu là list/dict thì convert sang string
-        if isinstance(response, (list, dict)):
-            response = json.dumps(response)
-
-        # Tìm JSON object trong text
-        match = re.search(r'\{[\s\S]*\}', str(response))
-        json_str = match.group(0) if match else str(response)
-
-        data = json.loads(json_str)
-
-    except (json.JSONDecodeError, AttributeError):
-        r.logger.warning("JSON parse failed, extracting from text")
-        return _extract_from_text(str(response))
-
-    # Map field còn thiếu
-    for field in REQUIRED_FIELDS:
-        if field not in data:
-            r.logger.warning(f"Missing required field: {field}, extracting fallback value")
-            data[field] = _extract_from_text(json_str).get(field)
-
-    # Chuẩn hóa score
-    for field in SCORE_FIELDS:
-        if field in data:
-            try:
-                data[field] = max(0.0, min(10.0, float(data[field])))
-            except (ValueError, TypeError):
-                data[field] = 0.0
-
-    return data
-
-
-def _extract_from_text(content: str) -> Dict[str, Any]:
-    """
-    Fallback: Extract scores/feedback from raw text if JSON parse fails
-    """
-    extracted = _extract_useful_info_from_text(content)
-    default_score = 5.0
-
-    return {
-        **{f: extracted.get(f, default_score) for f in SCORE_FIELDS},
-        "general_feedback": extracted.get("general_feedback", "AI response parsing completed"),
-        "detailed_feedback": content,
-        "grammar_errors": extracted.get("grammar_errors", []),
-        "grammar_improvements": extracted.get("grammar_improvements", []),
-        "vocabulary_suggestions": extracted.get("vocabulary_suggestions", []),
-        "vocabulary_improvements": extracted.get("vocabulary_improvements", []),
-        "improvement_suggestions": extracted.get("improvement_suggestions", []),
-        "suggested_writing": content
-    }
-
-
-def _extract_useful_info_from_text(text: str) -> Dict[str, Any]:
-    """
-    Use regex patterns to find scores and feedback in text
-    """
-    info = {}
-    score_map = {
-        "grammar": "grammar_score",
-        "vocabulary": "vocabulary_score",
-        "structure": "coherence_score",
-        "content": "content_score",
-        "overall": "overall_score",
-        "coherence": "coherence_score"
-    }
-
-    # Regex tìm điểm
-    for key, field_name in score_map.items():
-        match = re.search(rf'{key}.*?(\d+\.?\d*)', text.lower())
-        if match:
-            info[field_name] = float(match.group(1))
-
-    # Nếu thiếu overall_score thì tính trung bình
-    if "overall_score" not in info:
-        scores = [info.get(f, 5.0) for f in SCORE_FIELDS if f != "overall_score"]
-        info["overall_score"] = round(sum(scores) / len(scores), 1)
-
-    # Regex feedback
-    general_feedback_match = re.search(r'(?:overall|general).*?(?:feedback|assessment|comment):\s*([^.]+)', text.lower())
-    if general_feedback_match:
-        info["general_feedback"] = general_feedback_match.group(1).strip()
-
-    return info
