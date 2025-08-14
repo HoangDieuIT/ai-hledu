@@ -31,15 +31,15 @@ class LLMManager:
             raise HTTPException(status_code=500, detail="No active provider configured")
 
         name = (provider.name or "").lower()
-        model_name = None
+        model = None
         if provider.ai_models:
             active_models = [m for m in provider.ai_models if m.is_active]
-            model_name = active_models[0].name if active_models else None
+            model = active_models[0].name if active_models else None
 
         config = ProviderConfig(
             provider_name=provider.name,
             api_key=provider.api_key,
-            model_name=model_name,
+            model=model,
         )
 
         if "openai" in name:
