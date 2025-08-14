@@ -33,14 +33,29 @@ class PromptTemplate(BaseModel):
             case _:
                 focus = "text"
         return (
-            "You are a helpful assistant for writing assessment. "
-            f"You are given {focus} and must evaluate it objectively."
+            f"You are an expert writing assessor for {self.student_level} level students. "
+            f"Evaluate the given {focus} on topic '{self.topic}' objectively using a 0-10 scale. "
+            f"Adjust your expectations and scoring criteria according to {self.student_level} proficiency level. "
+            f"For {self.student_level} students, focus on appropriate grammar complexity, vocabulary range, and content depth. "
+            "RESPOND WITH ONLY VALID JSON - NO OTHER TEXT. "
+            "JSON must have these EXACT fields with EXACT names: "
+            "overall_score (number 0-10), grammar_score (number 0-10), vocabulary_score (number 0-10), "
+            "coherence_score (number 0-10), content_score (number 0-10), "
+            "general_feedback (string), detailed_feedback (string), "
+            "grammar_errors (array of objects with error_type, original_text, corrected_text, explanation OR empty array), "
+            "grammar_improvements (array of strings OR empty array), "
+            "vocabulary_suggestions (array of objects with original_word, suggested_word, reason OR empty array), "
+            "vocabulary_improvements (array of strings OR empty array), "
+            "improvement_suggestions (array of strings OR empty array), "
+            "suggested (string). "
+            "Use null for optional fields if not applicable. All scores must be numbers between 0-10."
         )
 
     def _system_for_speaking(self) -> str:
         return (
             "You are a helpful assistant for speaking assessment. "
-            "Evaluate pronunciation, fluency, coherence, and vocabulary usage."
+            "Evaluate pronunciation, fluency, coherence, and vocabulary usage. "
+            "You must respond with valid JSON only. Do not include any text outside the JSON structure."
         )
 
     def _user_common(self) -> str:
@@ -56,69 +71,30 @@ class PromptTemplate(BaseModel):
         Returns:
             str: A formatted string containing analysis instructions and JSON output format.
         """
-        # Common instructions or context for the task
         base_prompt = self._user_common()
 
-        # Detailed analysis requirements
-        analysis_instructions = """
-            Please analyze and provide:
-            1. Overall score (0-10)
-            2. Individual scores for Grammar, Vocabulary, Coherence, Content (0-10 each)
-            3. General feedback (overall impression)
-            4. Detailed feedback (comprehensive analysis)
-            5. Grammar errors with corrections
-            6. Vocabulary suggestions
-            7. Improvement suggestions
-            8. An improved version of the writing
-            9. Format of response is JSON
-            """
+        analysis_instructions = (
+            f"Assess this writing considering it's from a {self.student_level} level student writing about '{self.topic}'. "
+            f"Apply {self.student_level}-appropriate expectations for grammar complexity, vocabulary sophistication, and content depth. "
+            "Provide assessment in JSON format with EXACTLY these fields: "
+            "overall_score (number 0-10), grammar_score (number 0-10), vocabulary_score (number 0-10), "
+            "coherence_score (number 0-10), content_score (number 0-10), "
+            "general_feedback (string), detailed_feedback (string), "
+            "grammar_errors (array OR empty array), grammar_improvements (array OR empty array), "
+            "vocabulary_suggestions (array OR empty array), vocabulary_improvements (array OR empty array), "
+            "improvement_suggestions (array OR empty array), suggested (string). "
+            "Use empty arrays for optional fields if not applicable. RESPOND WITH JSON ONLY."
+        )
 
-        # JSON format specification
-        json_format = """
-            Format your response as JSON with these fields:
-            {
-                "overall_score": float,
-                "grammar_score": float,
-                "vocabulary_score": float,
-                "coherence_score": float,
-                "content_score": float,
-                "general_feedback": "string",
-                "detailed_feedback": "string",
-                "grammar_errors": [
-                    {
-                        "error_type": "string",
-                        "original_text": "string",
-                        "corrected_text": "string",
-                        "explanation": "string"
-                    }
-                ],
-                "grammar_improvements": ["string"],
-                "vocabulary_suggestions": [
-                    {
-                        "original_word": "string",
-                        "suggested_word": "string",
-                        "reason": "string"
-                    }
-                ],
-                "vocabulary_improvements": ["string"],
-                "improvement_suggestions": ["string"],
-                "suggested_writing": "string"
-            }
-            """
-
-        # Combine all parts into one final prompt
-        return f"{base_prompt}{analysis_instructions}{json_format}"
+        return f"{base_prompt}{analysis_instructions}"
 
     def _user_for_speaking(self) -> str:
         return (
             self._user_common()
-            + "\nPlease analyze and provide:\n"
-            + "1. Overall speaking score (0-10)\n"
-            + "2. Scores for Pronunciation, Fluency, Coherence, Vocabulary (0-10 each)\n"
-            + "3. Specific pronunciation errors and corrections\n"
-            + "4. Fluency feedback and pace suggestions\n"
-            + "5. Recommended practice drills\n"
-            + "\nFormat response as JSON with analogous fields."
+            + "\nPlease analyze and provide a JSON response with these exact fields: "
+            + "overall_score, pronunciation_score, fluency_score, coherence_score, vocabulary_score, "
+            + "pronunciation_errors, fluency_feedback, practice_drills. "
+            + "Respond with JSON only, no additional text."
         )
 
     def build(self) -> str:
