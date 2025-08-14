@@ -74,7 +74,7 @@ class WritingAssessmentTemplate(BaseModel):
             '  ],\n'
             '  "vocabulary_improvements": ["string"],\n'
             '  "improvement_suggestions": ["string"],\n'
-            '  "suggested_writing": "string"\n'
+            '  "suggested": "string"\n'
             "}"
         )
 
