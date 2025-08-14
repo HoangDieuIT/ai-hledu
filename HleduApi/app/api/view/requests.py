@@ -43,10 +43,6 @@ class WritingAssessmentRequest(BaseModel):
         default=TypeRequest.PARAGRAPH,
         description="Writing type"
     )
-    mode: ModeRequest = Field(
-        default=ModeRequest.WRITING,
-        description="Assessment mode"
-    )
     preferred_provider: Optional[str] = Field(
         default=None,
         description="Preferred AI provider (optional)",
