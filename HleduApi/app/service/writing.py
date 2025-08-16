@@ -36,7 +36,7 @@ async def assess_writing(request: WritingAssessmentRequest) -> WritingAssessment
             topic=request.topic,
             text=request.text,
             type=request.type,
-            mode=ModeRequest.WRITING.value
+            mode=ModeRequest.WRITING
         )
         prompt = template.build()
 
