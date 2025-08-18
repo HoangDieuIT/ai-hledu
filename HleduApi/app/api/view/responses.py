@@ -1,8 +1,5 @@
-from datetime import date, datetime
+from datetime import datetime
 from typing import List, Optional
-from decimal import Decimal
-
-import app.model.composite as c
 from pydantic import ConfigDict, Field, BaseModel
 from pydantic.alias_generators import to_camel
 from pydantic.dataclasses import dataclass
@@ -22,24 +19,21 @@ config = ConfigDict(
 
 @dataclass(config=config)
 class AIModelResponse:
-    """
-    AI Model response model.
-    """
+    """AI Model response model."""
     id: str = Field(description="AI Model ID")
     name: str = Field(description="AI Model name")
     provider_id: str = Field(description="Provider ID")
     is_active: bool = Field(description="Whether the model is active")
 
 
-@dataclass(config=config) 
+@dataclass(config=config)
 class ProviderResponse:
-    """
-    Provider response model.
-    """
+    """Provider response model."""
     id: str = Field(description="Provider ID")
-    name: str = Field(description="Provider name") 
+    name: str = Field(description="Provider name")
     is_active: bool = Field(description="Whether the provider is active")
     ai_models: Optional[List[AIModelResponse]] = Field(default=None, description="AI models associated with this provider")
+
 
 class GrammarError(BaseModel):
     """Individual grammar error details"""
@@ -47,12 +41,16 @@ class GrammarError(BaseModel):
     original_text: str = Field(description="Original incorrect text")
     corrected_text: str = Field(description="Corrected version")
     explanation: str = Field(description="Explanation of the error")
+    line_number: Optional[int] = Field(default=None, description="Line number where the error occurred")
+
 
 class VocabularySuggestion(BaseModel):
     """Vocabulary improvement suggestion"""
     original_word: str = Field(description="Original word used")
     suggested_word: str = Field(description="Suggested better word")
     reason: str = Field(description="Reason for the suggestion")
+    line_number: Optional[int] = Field(default=None, description="Line number where the word appears")
+
 
 class WritingAssessmentResponse(BaseModel):
     """Complete writing assessment response"""
@@ -61,23 +59,23 @@ class WritingAssessmentResponse(BaseModel):
     vocabulary_score: float = Field(..., ge=0, le=10, description="Vocabulary score")
     coherence_score: float = Field(..., ge=0, le=10, description="Coherence score")
     content_score: float = Field(..., ge=0, le=10, description="Content score")
-    
+
     general_feedback: str = Field(description="Overall impression and feedback")
     detailed_feedback: str = Field(description="Comprehensive analysis")
-    
+
     grammar_errors: Optional[List[GrammarError]] = Field(default=None, description="Grammar errors found (null if no errors)")
     grammar_improvements: Optional[List[str]] = Field(default=None, description="Grammar improvement suggestions (null if not needed)")
     vocabulary_suggestions: Optional[List[VocabularySuggestion]] = Field(default=None, description="Vocabulary suggestions (null if vocabulary is good)")
     vocabulary_improvements: Optional[List[str]] = Field(default=None, description="Vocabulary improvement tips (null if not needed)")
     improvement_suggestions: Optional[List[str]] = Field(default=None, description="General improvement suggestions (null if writing is excellent)")
-    
+
     suggested: Optional[str] = Field(default=None, description="Improved version of the writing (null if original is good)")
-    
+
     # Metadata
     provider: str = Field(description="AI provider used for assessment")
     model: str = Field(description="AI model used")
     assessment_timestamp: datetime = Field(description="Assessment timestamp")
-    
+
     class Config:
         json_schema_extra = {
             "example": {
@@ -89,13 +87,23 @@ class WritingAssessmentResponse(BaseModel):
                 "general_feedback": "Good effort with room for improvement",
                 "detailed_feedback": "The writing shows good understanding of the topic...",
                 "grammar_errors": [
-                    {"error_type": "Subject-Verb Agreement",
+                    {
+                        "error_type": "Subject-Verb Agreement",
                         "original_text": "Climate change are",
                         "corrected_text": "Climate change is",
-                        "explanation": "Singular subject requires singular verb"
+                        "explanation": "Singular subject requires singular verb",
+                        "line_number": 1
                     }
                 ],
-                "suggested": "Climate change is a serious problem that affects everyone on Earth...",
+                "vocabulary_suggestions": [
+                    {
+                        "original_word": "big",
+                        "suggested_word": "significant",
+                        "reason": "More academic and precise",
+                        "line_number": 2
+                    }
+                ],
+                "suggested": "Climate change is a significant problem that affects everyone on Earth...",
                 "provider": "gemini",
                 "model": "gemini-2.0-flash",
                 "assessment_timestamp": "2025-08-13T10:00:00Z"
