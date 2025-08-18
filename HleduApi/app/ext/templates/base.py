@@ -4,9 +4,7 @@ from app.service.types import TypeRequest
 
 
 class WritingAssessmentTemplate(BaseModel):
-    """Template to build prompt for writing assessment.
-    Inputs are normalized to ensure DRY across paragraph/sentence modes.
-    """
+    """Template to build prompt for writing assessment."""
 
     student_level: str = Field(..., description="Student proficiency level")
     topic: str = Field(..., description="Writing topic")
@@ -66,11 +64,11 @@ class WritingAssessmentTemplate(BaseModel):
             '  "general_feedback": "string",\n'
             '  "detailed_feedback": "string",\n'
             '  "grammar_errors": [\n'
-            '    {"error_type": "string", "original_text": "string", "corrected_text": "string", "explanation": "string"}\n'
+            '    {"error_type": "string", "original_text": "string", "corrected_text": "string", "explanation": "string", "line_number": int}\n'
             '  ],\n'
             '  "grammar_improvements": ["string"],\n'
             '  "vocabulary_suggestions": [\n'
-            '    {"original_word": "string", "suggested_word": "string", "reason": "string"}\n'
+            '    {"original_word": "string", "suggested_word": "string", "reason": "string", "line_number": int}\n'
             '  ],\n'
             '  "vocabulary_improvements": ["string"],\n'
             '  "improvement_suggestions": ["string"],\n'
