@@ -49,7 +49,6 @@ class OpenAIProvider(BaseProvider):
         Maps OpenAI response format to WritingAssessmentResponse model.
         """
         logger = r.logger
-        
         try:
             if isinstance(raw_content, str):
                 data = json.loads(raw_content)
@@ -64,9 +63,9 @@ class OpenAIProvider(BaseProvider):
                 "content_score": self._parse_score(data.get("content_score")),
                 "general_feedback": data.get("general_feedback", ""),
                 "detailed_feedback": data.get("detailed_feedback", ""),
-                "grammar_errors": self._parse_optional_grammar_errors(data),
+                "grammar_errors": self._parse_grammar_errors(self._get_optional_field(data, "grammar_errors") or []),
                 "grammar_improvements": self._coerce_optional_str_list(self._get_optional_field(data, "grammar_improvements")),
-                "vocabulary_suggestions": self._parse_optional_vocabulary_suggestions(data),
+                "vocabulary_suggestions": self._parse_vocabulary_suggestions(self._get_optional_field(data, "vocabulary_suggestions") or []),
                 "vocabulary_improvements": self._coerce_optional_str_list(self._get_optional_field(data, "vocabulary_improvements")),
                 "improvement_suggestions": self._coerce_optional_str_list(self._get_optional_field(data, "improvement_suggestions")),
                 "suggested": self._get_optional_field(data, "suggested")
@@ -81,6 +80,7 @@ class OpenAIProvider(BaseProvider):
             logger.error(f"Error parsing OpenAI writing response: {e}")
             return self._error_response()
 
+    # -------------------- Helpers --------------------
     def _parse_score(self, value: Any) -> float:
         try:
             if isinstance(value, str):
@@ -115,33 +115,6 @@ class OpenAIProvider(BaseProvider):
             return out if out else None
         return None
 
-    def _error_response(self) -> Dict[str, Any]:
-        return {
-            "overall_score": 0.0,
-            "grammar_score": 0.0,
-            "vocabulary_score": 0.0,
-            "coherence_score": 0.0,
-            "content_score": 0.0,
-            "general_feedback": "Failed to parse AI response.",
-            "detailed_feedback": "There was an error processing the assessment response.",
-            "grammar_errors": None,
-            "grammar_improvements": None,
-            "vocabulary_suggestions": None,
-            "vocabulary_improvements": None,
-            "improvement_suggestions": None,
-            "suggested": None,
-        }
-    
-    def _parse_optional_grammar_errors(self, data: Dict[str, Any]) -> List[Dict[str, Any]] | None:
-        """Parse grammar errors if provided"""
-        errors = self._get_optional_field(data, "grammar_errors")
-        return self._parse_grammar_errors(errors) if errors else None
-
-    def _parse_optional_vocabulary_suggestions(self, data: Dict[str, Any]) -> List[Dict[str, Any]] | None:
-        """Parse vocabulary suggestions if provided"""
-        suggestions = self._get_optional_field(data, "vocabulary_suggestions")
-        return self._parse_vocabulary_suggestions(suggestions) if suggestions else None
-    
     def _parse_grammar_errors(self, errors: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Parse grammar errors from OpenAI format"""
         parsed_errors = []
@@ -151,10 +124,11 @@ class OpenAIProvider(BaseProvider):
                     "error_type": error.get("error_type", "Unknown"),
                     "original_text": error.get("original_text", ""),
                     "corrected_text": error.get("corrected_text", ""),
-                    "explanation": error.get("explanation", "")
+                    "explanation": error.get("explanation", ""),
+                    "line_number": error.get("line_number")
                 })
         return parsed_errors
-    
+
     def _parse_vocabulary_suggestions(self, suggestions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Parse vocabulary suggestions from OpenAI format"""
         parsed_suggestions = []
@@ -163,12 +137,12 @@ class OpenAIProvider(BaseProvider):
                 parsed_suggestions.append({
                     "original_word": suggestion.get("original_word", ""),
                     "suggested_word": suggestion.get("suggested_word", ""),
-                    "reason": suggestion.get("reason", "")
+                    "reason": suggestion.get("reason", ""),
+                    "line_number": suggestion.get("line_number")
                 })
         return parsed_suggestions
-    
-    def _get_error_response(self) -> Dict[str, Any]:
-        """Return default error response when parsing fails"""
+
+    def _error_response(self) -> Dict[str, Any]:
         return {
             "overall_score": 0.0,
             "grammar_score": 0.0,
