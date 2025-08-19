@@ -30,14 +30,14 @@ class WritingAssessmentRequest(BaseModel):
         description="Writing topic",
         example="Environmental Protection",
         min_length=1,
-        max_length=200
+        max_length=5000
     )
     text: str = Field(
         ..., 
         description="Text content to be assessed",
         example="Climate change is a serious problem that affects everyone on Earth. We need to take action to reduce carbon emissions and protect our environment.",
         min_length=10,
-        max_length=5000
+        max_length=10000
     )
     type: TypeRequest = Field(
         default=TypeRequest.PARAGRAPH,
@@ -53,7 +53,7 @@ class WritingAssessmentRequest(BaseModel):
         json_schema_extra = {
             "example": {
                 "student_level": "4.0",
-                "topic": "Environmental Protection",
+                "topic": "Environmental Protection and Sustainable Development Policies in Modern Societies",
                 "text": "Climate change is a serious problem that affects everyone on Earth. We need to take action to reduce carbon emissions and protect our environment.",
                 "type": "paragraph",
                 "mode": "writing"
