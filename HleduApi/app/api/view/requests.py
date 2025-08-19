@@ -1,8 +1,11 @@
 # app/api/view/requests.py
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator
 from app.service.types import TypeRequest, ModeRequest
 from typing import Optional
 
+import bleach
+
+ALLOWED_TAGS = ['b', 'strong', 'i', 'em', 'p', 'br']
 
 class UpdateProviderRequest(BaseModel):
     """
@@ -48,6 +51,21 @@ class WritingAssessmentRequest(BaseModel):
         description="Preferred AI provider (optional)",
         example="openai"
     )
+
+    # ===================== Validators =====================
+    @validator('topic', pre=True)
+    def sanitize_topic(cls, v):
+        """Sanitize HTML in topic before processing"""
+        if v:
+            return bleach.clean(v, tags=ALLOWED_TAGS, attributes={}, strip=True)
+        return v
+
+    @validator('text', pre=True)
+    def sanitize_text(cls, v):
+        """Sanitize HTML in text before processing"""
+        if v:
+            return bleach.clean(v, tags=ALLOWED_TAGS, attributes={}, strip=True)
+        return v
     
     class Config:
         json_schema_extra = {
