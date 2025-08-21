@@ -1,88 +1,73 @@
-from typing import Literal
 from pydantic import BaseModel, Field
+from typing import Dict, Any
 from app.service.types import TypeRequest, ModeRequest
-from .base import WritingAssessmentTemplate, SpeakingAssessmentTemplate
-
 
 class PromptTemplate(BaseModel):
-    """Scalable prompt builder across modes (writing/speaking) and granularities."""
-
     student_level: str = Field(...)
     topic: str = Field(...)
     text: str = Field(...)
-    type: Literal[
-        TypeRequest.WORD,
-        TypeRequest.SENTENCE,
-        TypeRequest.PARAGRAPH,
-        TypeRequest.ESSAY,
-    ] = Field(..., description="Granularity")
-    mode: Literal[ModeRequest.WRITING, ModeRequest.SPEAKING] = Field(..., description="Task mode")
+    type: TypeRequest = Field(..., description="Granularity")
+    mode: ModeRequest = Field(..., description="Task mode")
 
-    def _system_for_writing(self) -> str:
+    def _system_writing(self) -> str:
         return (
-            f"You are an expert writing assessor for {self.student_level} level students. "
-            f"Evaluate the given {self.type.value.lower()} on topic '{self.topic}' objectively using a 0-10 scale. "
-            f"Adjust scoring according to {self.student_level} level. "
-            "RESPOND WITH ONLY VALID JSON - NO OTHER TEXT. "
-            "JSON must have these EXACT fields: "
-            "overall_score, grammar_score, vocabulary_score, coherence_score, content_score, "
-            "general_feedback, detailed_feedback, "
-            "grammar_errors (array of objects with error_type, original_text, corrected_text, explanation, line_number OR empty array), "
-            "grammar_improvements (array OR empty array), "
-            "vocabulary_suggestions (array of objects with original_word, suggested_word, reason, line_number OR empty array), "
-            "vocabulary_improvements (array OR empty array), "
-            "improvement_suggestions (array OR empty array), "
-            "suggested (string). "
-            "All scores must be numbers between 0-10."
+            f"You are an expert ESL writing assessor for {self.student_level} level students. "
+            f"Evaluate the {self.type.name.lower()} on topic '{self.topic}' objectively and precisely. "
+            "Provide scores from 0-10 for Grammar, Vocabulary, Coherence, and Content. "
+            "Return detailed JSON assessment with specific feedback and suggestions. "
+            "Be constructive and educational in your feedback."
         )
 
-    def _system_for_speaking(self) -> str:
+    def _user_writing(self) -> str:
+        json_structure = '''{
+  "overall_score": 8.5,
+  "grammar_score": 8.0,
+  "vocabulary_score": 7.5,
+  "coherence_score": 9.0,
+  "content_score": 8.5,
+  "general_feedback": "Overall assessment summary",
+  "detailed_feedback": "Comprehensive analysis of strengths and areas for improvement",
+  "grammar_errors": [
+    {
+      "error_type": "Subject-verb agreement",
+      "original_text": "The cats was playing",
+      "corrected_text": "The cats were playing",
+      "explanation": "Plural subject requires plural verb",
+      "line_number": 1
+    }
+  ],
+  "grammar_improvements": ["Focus on subject-verb agreement", "Practice with irregular verbs"],
+  "vocabulary_suggestions": [
+    {
+      "original_word": "big",
+      "suggested_word": "enormous",
+      "reason": "More precise and advanced vocabulary",
+      "line_number": 2
+    }
+  ],
+  "vocabulary_improvements": ["Use more varied adjectives", "Learn academic vocabulary"],
+  "improvement_suggestions": ["Work on paragraph structure", "Use transition words"],
+  "suggested": "Here is an improved version of your writing..."
+}'''
+
         return (
-            "You are a helpful assistant for speaking assessment. "
-            "Evaluate pronunciation, fluency, coherence, and vocabulary usage. "
-            "You must respond with valid JSON only. Do not include any text outside the JSON structure."
+            f"Please assess this {self.type.name.lower()} written by a {self.student_level} level student.\n\n"
+            f"Topic: {self.topic}\n\n"
+            f"Student Text:\n{self.text}\n\n"
+            "Provide a comprehensive assessment following this exact JSON format:\n"
+            f"{json_structure}\n\n"
+            "Requirements:\n"
+            "- Scores must be numbers between 0-10\n"
+            "- Provide specific, actionable feedback\n"
+            "- Include concrete examples in error corrections\n"
+            "- Make suggestions appropriate for the student level\n"
+            "- Return ONLY valid JSON, no additional text"
         )
 
-    def _user_common(self) -> str:
-        return (
-            f"Topic: {self.topic}\n"
-            f"Student Level: {self.student_level}\n"
-            f"Text: {self.text}\n"
-        )
-
-    def _user_for_writing(self) -> str:
-        return (
-            self._user_common()
-            + "Provide JSON response with exactly these fields: "
-            "overall_score, grammar_score, vocabulary_score, coherence_score, content_score, "
-            "general_feedback, detailed_feedback, "
-            "grammar_errors (objects with error_type, original_text, corrected_text, explanation, line_number), "
-            "grammar_improvements, "
-            "vocabulary_suggestions (objects with original_word, suggested_word, reason, line_number), "
-            "vocabulary_improvements, improvement_suggestions, suggested."
-        )
-
-    def _user_for_speaking(self) -> str:
-        return (
-            self._user_common()
-            + "Provide JSON with: "
-            "overall_score, pronunciation_score, fluency_score, coherence_score, vocabulary_score, "
-            "pronunciation_errors, fluency_feedback, practice_drills."
-        )
-
-    def build(self) -> str:
-        if self.mode is ModeRequest.WRITING:
-            t = WritingAssessmentTemplate(
-                student_level=self.student_level,
-                topic=self.topic,
-                text=self.text,
-                type=self.type,
-            )
-        else:
-            t = SpeakingAssessmentTemplate(
-                student_level=self.student_level,
-                topic=self.topic,
-                text=self.text,
-                type=self.type,
-            )
-        return f"<SYSTEM>\n{t.system_prompt()}\n</SYSTEM>\n<USER>\n{t.user_prompt()}\n</USER>"
+    def build(self) -> Dict[str, Any]:
+        """Build messages for writing assessment"""
+        messages = [
+            {"role": "system", "content": self._system_writing()},
+            {"role": "user", "content": self._user_writing()}
+        ]
+        return {"messages": messages}
