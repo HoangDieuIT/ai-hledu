@@ -1,10 +1,8 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Any
 from pydantic import ConfigDict, Field, BaseModel
 from pydantic.alias_generators import to_camel
 from pydantic.dataclasses import dataclass
-from typing_extensions import Self
-from app.resources import context as r
 from app.ext.custom_datetime.time_handler import CustomDateTime
 
 # ================================================================
@@ -41,7 +39,7 @@ class GrammarError(BaseModel):
     original_text: str = Field(description="Original incorrect text")
     corrected_text: str = Field(description="Corrected version")
     explanation: str = Field(description="Explanation of the error")
-    line_number: Optional[int] = Field(default=None, description="Line number where the error occurred")
+    line_number: Optional[Any] = Field(default=None, description="Line number where the error occurred")
 
 
 class VocabularySuggestion(BaseModel):
@@ -49,10 +47,22 @@ class VocabularySuggestion(BaseModel):
     original_word: str = Field(description="Original word used")
     suggested_word: str = Field(description="Suggested better word")
     reason: str = Field(description="Reason for the suggestion")
-    line_number: Optional[int] = Field(default=None, description="Line number where the word appears")
+    line_number: Optional[Any] = Field(default=None, description="Line number where the word appears")
 
 
 class WritingAssessmentResponse(BaseModel):
+    @staticmethod
+    def serialize_field(data_list, object_class):
+        if not isinstance(data_list, list):
+            return []
+        parsed_objects = []
+        for item in data_list:
+            if isinstance(item, dict):
+                try:
+                    parsed_objects.append(object_class(**item))
+                except Exception as e:
+                   pass
+        return parsed_objects
     """Complete writing assessment response"""
     overall_score: float = Field(..., ge=0, le=10, description="Overall writing score")
     grammar_score: float = Field(..., ge=0, le=10, description="Grammar score")
@@ -121,18 +131,6 @@ class WritingAssessmentResponse(BaseModel):
     ) -> "WritingAssessmentResponse":
         """Factory method to build response from parsed provider data."""
 
-        def _parse_optional_objects(data_list, object_class) -> Optional[List]:
-            if not data_list or not isinstance(data_list, list):
-                return None
-            parsed_objects: List = []
-            for item in data_list:
-                if isinstance(item, dict):
-                    try:
-                        parsed_objects.append(object_class(**item))
-                    except Exception as e:
-                        r.logger.warning(f"Failed to create {object_class.__name__}: {e}")
-            return parsed_objects if parsed_objects else None
-
         return cls(
             overall_score=data.get("overall_score", 0.0),
             grammar_score=data.get("grammar_score", 0.0),
@@ -141,9 +139,9 @@ class WritingAssessmentResponse(BaseModel):
             content_score=data.get("content_score", 0.0),
             general_feedback=data.get("general_feedback", ""),
             detailed_feedback=data.get("detailed_feedback", ""),
-            grammar_errors=_parse_optional_objects(data.get("grammar_errors"), GrammarError),
+            grammar_errors=cls.serialize_field(data.get("grammar_errors"), GrammarError),
             grammar_improvements=data.get("grammar_improvements"),
-            vocabulary_suggestions=_parse_optional_objects(data.get("vocabulary_suggestions"), VocabularySuggestion),
+            vocabulary_suggestions=cls.serialize_field(data.get("vocabulary_suggestions"), VocabularySuggestion),
             vocabulary_improvements=data.get("vocabulary_improvements"),
             improvement_suggestions=data.get("improvement_suggestions"),
             suggested=data.get("suggested"),
