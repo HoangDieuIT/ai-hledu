@@ -5,9 +5,7 @@ from .base import WritingAssessmentTemplate, SpeakingAssessmentTemplate
 
 
 class PromptTemplate(BaseModel):
-    """
-    Scalable prompt builder across modes (writing/speaking) and granularities.
-    """
+    """Scalable prompt builder across modes (writing/speaking) and granularities."""
 
     student_level: str = Field(...)
     topic: str = Field(...)
@@ -21,26 +19,28 @@ class PromptTemplate(BaseModel):
     mode: Literal[ModeRequest.WRITING, ModeRequest.SPEAKING] = Field(..., description="Task mode")
 
     def _system_for_writing(self) -> str:
-        match self.type:
-            case TypeRequest.WORD:
-                focus = "a word"
-            case TypeRequest.SENTENCE:
-                focus = "a sentence"
-            case TypeRequest.PARAGRAPH:
-                focus = "a paragraph"
-            case TypeRequest.ESSAY:
-                focus = "an essay"
-            case _:
-                focus = "text"
         return (
-            "You are a helpful assistant for writing assessment. "
-            f"You are given {focus} and must evaluate it objectively."
+            f"You are an expert writing assessor for {self.student_level} level students. "
+            f"Evaluate the given {self.type.value.lower()} on topic '{self.topic}' objectively using a 0-10 scale. "
+            f"Adjust scoring according to {self.student_level} level. "
+            "RESPOND WITH ONLY VALID JSON - NO OTHER TEXT. "
+            "JSON must have these EXACT fields: "
+            "overall_score, grammar_score, vocabulary_score, coherence_score, content_score, "
+            "general_feedback, detailed_feedback, "
+            "grammar_errors (array of objects with error_type, original_text, corrected_text, explanation, line_number OR empty array), "
+            "grammar_improvements (array OR empty array), "
+            "vocabulary_suggestions (array of objects with original_word, suggested_word, reason, line_number OR empty array), "
+            "vocabulary_improvements (array OR empty array), "
+            "improvement_suggestions (array OR empty array), "
+            "suggested (string). "
+            "All scores must be numbers between 0-10."
         )
 
     def _system_for_speaking(self) -> str:
         return (
             "You are a helpful assistant for speaking assessment. "
-            "Evaluate pronunciation, fluency, coherence, and vocabulary usage."
+            "Evaluate pronunciation, fluency, coherence, and vocabulary usage. "
+            "You must respond with valid JSON only. Do not include any text outside the JSON structure."
         )
 
     def _user_common(self) -> str:
@@ -53,28 +53,21 @@ class PromptTemplate(BaseModel):
     def _user_for_writing(self) -> str:
         return (
             self._user_common()
-            + "\nPlease analyze and provide:\n"
-            + "1. Overall score (0-10)\n"
-            + "2. Individual scores for Grammar, Vocabulary, Coherence, Content (0-10 each)\n"
-            + "3. General feedback (overall impression)\n"
-            + "4. Detailed feedback (comprehensive analysis)\n"
-            + "5. Grammar errors with corrections\n"
-            + "6. Vocabulary suggestions\n"
-            + "7. Improvement suggestions\n"
-            + "8. An improved version of the writing\n"
-            + "\nFormat response as JSON with fields similar to the writing template."
+            + "Provide JSON response with exactly these fields: "
+            "overall_score, grammar_score, vocabulary_score, coherence_score, content_score, "
+            "general_feedback, detailed_feedback, "
+            "grammar_errors (objects with error_type, original_text, corrected_text, explanation, line_number), "
+            "grammar_improvements, "
+            "vocabulary_suggestions (objects with original_word, suggested_word, reason, line_number), "
+            "vocabulary_improvements, improvement_suggestions, suggested."
         )
 
     def _user_for_speaking(self) -> str:
         return (
             self._user_common()
-            + "\nPlease analyze and provide:\n"
-            + "1. Overall speaking score (0-10)\n"
-            + "2. Scores for Pronunciation, Fluency, Coherence, Vocabulary (0-10 each)\n"
-            + "3. Specific pronunciation errors and corrections\n"
-            + "4. Fluency feedback and pace suggestions\n"
-            + "5. Recommended practice drills\n"
-            + "\nFormat response as JSON with analogous fields."
+            + "Provide JSON with: "
+            "overall_score, pronunciation_score, fluency_score, coherence_score, vocabulary_score, "
+            "pronunciation_errors, fluency_feedback, practice_drills."
         )
 
     def build(self) -> str:
@@ -93,4 +86,3 @@ class PromptTemplate(BaseModel):
                 type=self.type,
             )
         return f"<SYSTEM>\n{t.system_prompt()}\n</SYSTEM>\n<USER>\n{t.user_prompt()}\n</USER>"
-

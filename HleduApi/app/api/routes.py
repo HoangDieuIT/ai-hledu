@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, FastAPI, HTTPException, status
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from .route.internal import docs
 from .shared.errors import ValidationErrorResponse, errorModel, setup_handlers
-from .route.front import provider
+from .route.front import provider, writing
 
 security = HTTPBasic()
 authError = errorModel(Errors.UNAUTHORIZED, Errors.NOT_SIGNED_UP)
@@ -29,6 +29,7 @@ def setup_api(app: FastAPI, env: Environment, logger: logging.Logger):
     )
 
     router.include_router(provider.router, prefix="/provider", tags=["Provider"])
+    router.include_router(writing.router, prefix="/writing", tags=["Writing Assessment"])
 
     if env.settings.docs.enabled and env.settings.docs.username:
         from fastapi.openapi.utils import get_openapi
