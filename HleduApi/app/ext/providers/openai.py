@@ -8,15 +8,24 @@ class OpenAIProvider(BaseProvider):
     def __init__(self, config: ProviderConfig):
         super().__init__(config)
 
-    async def generate_response(self, prompt: str) -> LLmResponse:
+    async def generate_response(self, prompt_or_payload) -> LLmResponse:
         """
-        Call OpenAI Chat Completions API using the official SDK.
+        Call OpenAI Chat Completions API with JSON mode.
+        Based on official documentation: https://platform.openai.com/docs/api-reference/chat
         """
         logger = r.logger
-        model = self.config.model or "gpt-4o-mini"
+        model = self.config.model or "gpt-4o"
         API_URL = "https://api.openai.com/v1"
 
         try:
+            if isinstance(prompt_or_payload, dict):
+                messages = prompt_or_payload["messages"]
+            else:
+                messages = [
+                    {"role": "system", "content": "You are a helpful assistant designed to output JSON."},
+                    {"role": "user", "content": str(prompt_or_payload)}
+                ]
+
             async with httpx.AsyncClient(timeout=self.config.timeout_seconds) as client:
                 resp = await client.post(
                     f"{API_URL}/chat/completions",
@@ -26,10 +35,10 @@ class OpenAIProvider(BaseProvider):
                     },
                     json={
                         "model": model,
-                        "messages": [{"role": "user", "content": prompt}],
-                        "temperature": self.config.temperature,
-                        "max_tokens": self.config.max_tokens,
-                        "response_format": {"type": "json_object"},
+                        "messages": messages,
+                        "temperature": self.config.temperature or 0.7,
+                        "max_tokens": self.config.max_tokens or 2048,
+                        "response_format": {"type": "json_object"}
                     },
                 )
                 resp.raise_for_status()
@@ -39,23 +48,17 @@ class OpenAIProvider(BaseProvider):
                     msg = data["choices"][0]["message"]
                     content = msg.get("content", "")
                 return LLmResponse(content=content, provider_name=self.config.provider_name, model=model)
+                
         except Exception:
             logger.exception("OpenAI call failed")
             return LLmResponse(content="", provider_name=self.config.provider_name, model=model)
 
     def parse_writing_response(self, raw_content: str) -> Dict[str, Any]:
-        """
-        Parse OpenAI response for writing assessment.
-        Maps OpenAI response format to WritingAssessmentResponse model.
-        """
+        """Parse OpenAI response for writing assessment."""
         logger = r.logger
         try:
-            if isinstance(raw_content, str):
-                data = json.loads(raw_content)
-            else:
-                data = raw_content
-            
-            mapped_response = {
+            data = json.loads(raw_content) if isinstance(raw_content, str) else raw_content
+            return {
                 "overall_score": self._parse_score(data.get("overall_score")),
                 "grammar_score": self._parse_score(data.get("grammar_score")),
                 "vocabulary_score": self._parse_score(data.get("vocabulary_score")),
@@ -63,16 +66,13 @@ class OpenAIProvider(BaseProvider):
                 "content_score": self._parse_score(data.get("content_score")),
                 "general_feedback": data.get("general_feedback", ""),
                 "detailed_feedback": data.get("detailed_feedback", ""),
-                "grammar_errors": self._parse_grammar_errors(self._get_optional_field(data, "grammar_errors") or []),
-                "grammar_improvements": self._coerce_optional_str_list(self._get_optional_field(data, "grammar_improvements")),
-                "vocabulary_suggestions": self._parse_vocabulary_suggestions(self._get_optional_field(data, "vocabulary_suggestions") or []),
-                "vocabulary_improvements": self._coerce_optional_str_list(self._get_optional_field(data, "vocabulary_improvements")),
-                "improvement_suggestions": self._coerce_optional_str_list(self._get_optional_field(data, "improvement_suggestions")),
-                "suggested": self._get_optional_field(data, "suggested")
+                "grammar_errors": data.get("grammar_errors"),
+                "grammar_improvements": self._coerce_optional_str_list(data.get("grammar_improvements")),
+                "vocabulary_suggestions": data.get("vocabulary_suggestions"),
+                "vocabulary_improvements": self._coerce_optional_str_list(data.get("vocabulary_improvements")),
+                "improvement_suggestions": self._coerce_optional_str_list(data.get("improvement_suggestions")),
+                "suggested": data.get("suggested")
             }
-            
-            return mapped_response
-            
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse OpenAI JSON response: {e}")
             return self._error_response()
@@ -80,7 +80,6 @@ class OpenAIProvider(BaseProvider):
             logger.error(f"Error parsing OpenAI writing response: {e}")
             return self._error_response()
 
-    # -------------------- Helpers --------------------
     def _parse_score(self, value: Any) -> float:
         try:
             if isinstance(value, str):
@@ -94,11 +93,7 @@ class OpenAIProvider(BaseProvider):
                 parsed = 0.0
         except Exception:
             parsed = 0.0
-        if parsed < 0.0:
-            return 0.0
-        if parsed > 10.0:
-            return 10.0
-        return parsed
+        return max(0.0, min(10.0, parsed))
 
     def _coerce_optional_str_list(self, value: Any) -> List[str] | None:
         if value is None:
@@ -107,40 +102,10 @@ class OpenAIProvider(BaseProvider):
             t = value.strip()
             return [t] if t else None
         if isinstance(value, list):
-            out: List[str] = []
-            for item in value:
-                if item is None:
-                    continue
-                out.append(item if isinstance(item, str) else str(item))
+            out = [str(item) for item in value if item is not None]
             return out if out else None
         return None
 
-    def _parse_grammar_errors(self, errors: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Parse grammar errors from OpenAI format"""
-        parsed_errors = []
-        for error in errors:
-            if isinstance(error, dict):
-                parsed_errors.append({
-                    "error_type": error.get("error_type", "Unknown"),
-                    "original_text": error.get("original_text", ""),
-                    "corrected_text": error.get("corrected_text", ""),
-                    "explanation": error.get("explanation", ""),
-                    "line_number": error.get("line_number")
-                })
-        return parsed_errors
-
-    def _parse_vocabulary_suggestions(self, suggestions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Parse vocabulary suggestions from OpenAI format"""
-        parsed_suggestions = []
-        for suggestion in suggestions:
-            if isinstance(suggestion, dict):
-                parsed_suggestions.append({
-                    "original_word": suggestion.get("original_word", ""),
-                    "suggested_word": suggestion.get("suggested_word", ""),
-                    "reason": suggestion.get("reason", ""),
-                    "line_number": suggestion.get("line_number")
-                })
-        return parsed_suggestions
 
     def _error_response(self) -> Dict[str, Any]:
         return {
