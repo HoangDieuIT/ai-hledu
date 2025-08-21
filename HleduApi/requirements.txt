@@ -16,6 +16,7 @@ pydantic==2.0.3
 pydantic-settings==2.0.2
 email-validator==2.0.0
 PyYAML>=5.1
+bleach==6.2.0
 
 # Authentication & Security
 python-jose==3.3.0
@@ -57,6 +58,6 @@ pillow-heif==0.11.1
 CacheControl==0.14.0
 
 #Providers
-google-genai==1.28.0
-mistralai==1.9.3
-openai==1.98.0
+# google-genai==1.28.0
+# mistralai==1.9.3
+# openai==1.98.0
