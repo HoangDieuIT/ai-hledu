@@ -2,29 +2,35 @@ from abc import ABC, abstractmethod
 from pydantic import BaseModel
 from typing import Optional, Any, Dict
 
-
 class ProviderConfig(BaseModel):
     provider_name: str
     api_key: str
     model: Optional[str] = None
     api_secret: Optional[str] = None
     temperature: Optional[float] = 0.7
-    max_tokens: int = 2048
+    max_tokens: int = 8192
     timeout_seconds: int = 300
-
 
 class LLmResponse(BaseModel):
     content: Any
     provider_name: str
     model: str
 
-
 class BaseProvider(ABC):
     def __init__(self, config: ProviderConfig):
         self.config = config
 
     @abstractmethod
-    async def generate_response(self, prompt: str) -> LLmResponse:
+    async def generate_response(self, prompt_or_payload) -> LLmResponse:
+        """
+        Generate response from LLM provider.
+        
+        Args:
+            prompt_or_payload: Either a string prompt or dict with messages structure
+            
+        Returns:
+            LLmResponse containing the generated content
+        """
         pass
     
     @abstractmethod
@@ -40,18 +46,3 @@ class BaseProvider(ABC):
             Dict containing parsed data that maps to WritingAssessmentResponse model
         """
         pass
-
-    def _get_optional_field(self, data: Dict[str, Any], field_name: str) -> Any:
-        """
-        Get optional field, respecting AI's decision to include or exclude.
-        Common logic for all providers.
-        """
-        field_data = data.get(field_name)
-        
-        if field_data is None:
-            return None
-            
-        if (isinstance(field_data, list) and not field_data) or field_data == "":
-            return None
-            
-        return field_data
