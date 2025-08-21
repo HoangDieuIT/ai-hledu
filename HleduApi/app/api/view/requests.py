@@ -1,4 +1,3 @@
-# app/api/view/requests.py
 from pydantic import BaseModel, Field, validator
 from app.service.types import TypeRequest, ModeRequest
 from typing import Optional
